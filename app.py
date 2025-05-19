@@ -38,15 +38,16 @@ if user_input:
     # b) on appelle l’API et on affiche le résultat
     with st.chat_message("assistant"):
         with st.spinner("Je réfléchis…"):
-            res = openai.ChatCompletion.create(
+            response = openai.ChatCompletion.create(
                 model="gpt-4-turbo",
                 messages=st.session_state.messages
             )
-            reply = res.choices[0].message.content.strip()
+            reply = response.choices[0].message.content.strip()
             st.markdown(reply)
 
     # c) on ajoute la réponse à l’historique
     st.session_state.messages.append({"role": "assistant", "content": reply})
+
 
             reply = response.choices[0].message.content.strip()
             st.markdown(reply)
