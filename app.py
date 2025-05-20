@@ -3,8 +3,55 @@ import openai
 import urllib.parse
 from serpapi import GoogleSearch
 
-# ─── Configuration OpenAI ───────────────────────────────────────────────
 openai.api_key = st.secrets["openai_api_key"]
+
+def fetch_shopping_results(query, num_results=4):
+    params = {
+        "engine":    "google_shopping",
+        "q":         query,
+        "api_key":   st.secrets["serpapi_api_key"],
+    }
+    client = GoogleSearch(params)
+    data   = client.get_dict()
+    items  = data.get("shopping_results", [])[:num_results]
+    return [
+        {
+            "title":     i.get("title"),
+            "price":     i.get("price"),
+            "link":      i.get("link"),
+            "thumbnail": i.get("thumbnail"),
+            "source":    i.get("source"),
+        }
+        for i in items
+    ]
+
+def fetch_web_results(query, num_results=5):
+    params = {
+        "engine":  "google",
+        "q":       query,
+        "api_key": st.secrets["serpapi_api_key"],
+    }
+    client = GoogleSearch(params)
+    data   = client.get_dict()
+    items  = data.get("organic_results", [])[:num_results]
+    return [
+        {
+            "title":   i.get("title"),
+            "snippet": i.get("snippet"),
+            "link":    i.get("link"),
+        }
+        for i in items
+    ]
+
+def generate_car_links(query: str) -> dict:
+    q = urllib.parse.quote(query)
+    return {
+        "LeBonCoin (voitures)":    f"https://www.leboncoin.fr/voitures/offres/?q={q}",
+        "LaCentrale":              f"https://www.lacentrale.fr/listing?makesModelsCommercialNames={q}",
+        "AutoScout24":             f"https://www.autoscout24.fr/lst?sort=standard&desc=0&ustate=N%2CU&size=20&cy=F&atype=C&zip=&mmvmk0={q}",
+        "ParuVendu":               f"https://www.paruvendu.fr/voiture-vehicule-voiture-occasion/recherche/{q}.html",
+        "OuestFrance-auto":        f"https://www.ouestfrance-auto.com/voitures-occasion/{q}",
+    }
 
 # ─── Ton prompt système amélioré ──────────────────────────────────────────
 SYSTEM_PROMPT = """
@@ -119,7 +166,6 @@ if user_input:
 
     # 5) Sauvegarde la réponse
     st.session_state.messages.append({"role":"assistant","content":reply})
-
 
 
 
