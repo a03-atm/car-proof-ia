@@ -88,6 +88,8 @@ if "messages" not in st.session_state:
 
 # Affiche l'historique
 for msg in st.session_state.messages:
+    if msg["role"] == "system":
+        continue
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
