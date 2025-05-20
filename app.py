@@ -46,12 +46,23 @@ def fetch_web_results(query, num_results=5):
         for i in items
     ]
 
+# ─── Nouvelle fonction pour les liens voitures d’occasion ───────────────
+def generate_car_links(query: str) -> dict:
+    q = urllib.parse.quote(query)
+    return {
+        "LeBonCoin (voitures)":    f"https://www.leboncoin.fr/voitures/offres/?q={q}",
+        "LaCentrale":              f"https://www.lacentrale.fr/listing?makesModelsCommercialNames={q}",
+        "AutoScout24":             f"https://www.autoscout24.fr/lst?sort=standard&desc=0&ustate=N%2CU&size=20&cy=F&atype=C&zip=&mmvmk0={q}",
+        "ParuVendu":               f"https://www.paruvendu.fr/voiture-vehicule-voiture-occasion/recherche/{q}.html",
+        "OuestFrance-auto":        f"https://www.ouestfrance-auto.com/voitures-occasion/{q}",
+    }
+
 # ─── Interface & Historique ──────────────────────────────────────────────
 
 st.set_page_config(page_title="Car Proof IA", page_icon="🚗", layout="wide")
 
 st.title("🚗 Car Proof IA")
-st.markdown("Bonjour ! Je suis Car Proof, ton assistant IA automobile.")
+st.markdown("Bonjour, j'espère que vous allez bien ? Je suis Car Proof, ton assistant IA spécialisé dans l'automobile.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
@@ -61,6 +72,10 @@ if "messages" not in st.session_state:
                 "Tu es ChatGPT, un assistant automobile expert. "
                 "Tu analyses chaque demande (pièce, voiture, panne, etc.) et tu réponds "
                 "comme un professionnel de l'automobile."
+                "Tu proposes automatiquement des liens d’annonces ou de sites spécialisés comme Leboncoin, La Centrale, Oscaro, Mister Auto, etc., quand c'est pertinent. "
+                "Tu fais toujours une relance intelligente basée sur la demande précédente. "
+                "Tu proposes une cotation de prix pour les voitures selon les réparations à prévoir. "
+                "Tu ajoutes des images liées aux annonces générées."
             )
         }
     ]
@@ -107,7 +122,14 @@ if user_input:
                     f"Source : {p['source']}"
                 )
 
-    # 3) Appel à l’IA
+    # ─── 3) Liens vers sites d’annonces auto si besoin ────────────────────
+    car_triggers = ["voiture","occasion","acheter","vendre","modèle"]
+    if any(kw in text for kw in car_triggers):
+        st.markdown("🚗 **Annonces de voitures d’occasion :**")
+        for name, url in generate_car_links(user_input).items():
+            st.markdown(f"- [{name}]({url})")
+
+    # 4) Appel à l’IA
     with st.chat_message("assistant"):
         with st.spinner("Je réfléchis..."):
             response = openai.chat.completions.create(
@@ -117,6 +139,6 @@ if user_input:
             reply = response.choices[0].message.content.strip()
             st.markdown(reply)
 
-    # 4) Sauvegarde la réponse
+    # 5) Sauvegarde la réponse
     st.session_state.messages.append({"role":"assistant","content":reply})
 
