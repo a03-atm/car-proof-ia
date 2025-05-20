@@ -76,6 +76,12 @@ if "messages" not in st.session_state:
                 "Tu fais toujours une relance intelligente basée sur la demande précédente. "
                 "Tu proposes une cotation de prix pour les voitures selon les réparations à prévoir. "
                 "Tu ajoutes des images liées aux annonces générées."
+                "Des explications techniques claires (avec définition des termes)."
+                "Des conseils pratiques et étapes à suivre."
+                "Des liens pertinents (Leboncoin, La Centrale…)."
+                "Des suggestions de questions pour guider l’utilisateur."
+                "Une estimation de prix quand c’est pertinent."
+                "Tu réponds en français, de façon structurée : titres, listes, encadrés."
             )
         }
     ]
@@ -138,7 +144,9 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("Je réfléchis..."):
             response = openai.chat.completions.create(
-                model="gpt-4-turbo",
+                model="gpt-4",
+                temperature=0.9,
+                max_tokens=900,
                 messages=st.session_state.messages
             )
             reply = response.choices[0].message.content.strip()
@@ -146,4 +154,3 @@ if user_input:
 
     # 5) Sauvegarde la réponse
     st.session_state.messages.append({"role":"assistant","content":reply})
-
