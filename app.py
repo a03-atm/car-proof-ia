@@ -164,3 +164,4 @@ if user_input:
 
     # 5) Sauvegarde la réponse
     st.session_state.messages.append({"role":"assistant","content":reply})
+
