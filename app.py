@@ -118,7 +118,7 @@ if user_input:
     text = user_input.lower()
 
     # 1) Recherche web si demandé
-    web_triggers = ["cherche sur le web","recherche web","voir sur le web","google","site internet"]
+    web_triggers = ["cherche sur le web","infos","google","site internet","recherche web","voir sur le web","google","site internet"]
     if any(kw in text for kw in web_triggers):
         st.markdown("🌐 **Résultats Web :**")
         for wr in fetch_web_results(user_input):
@@ -166,6 +166,7 @@ if user_input:
 
     # 5) Sauvegarde la réponse
     st.session_state.messages.append({"role":"assistant","content":reply})
+
 
 
 
