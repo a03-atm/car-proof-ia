@@ -77,7 +77,7 @@ Tu es Car Proof IA, un assistant automobile expert et pédagogue.
 
 # ─── Interface & Historique ──────────────────────────────────────────────
 
-st.set_page_config(page_title="Car Proof IA", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="Car Proof IAA", page_icon="🚗", layout="wide")
 
 st.title("🚗 Car Proof IA")
 st.markdown("Bonjour, j'espère que vous allez bien ? Je suis Car Proof, ton assistant IA spécialisé dans l'automobile.")
