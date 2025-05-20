@@ -3,9 +3,6 @@ import openai
 import urllib.parse
 from serpapi import GoogleSearch
 
-# ← plus aucun espace devant
-st.set_page_config(page_title="Car Proof IA", page_icon="🚗", layout="wide")
-
 # ─── Ton prompt système amélioré ──────────────────────────────────────────
 SYSTEM_PROMPT = """
 Tu es Car Proof IA, un assistant automobile expert et pédagogue.
