@@ -35,18 +35,24 @@ for msg in st.session_state.messages[1:]:
 
 # Traitement du message utilisateur
 if user_input:
+    # 4 espaces devant 'with st.chat_message("user")'
     with st.chat_message("user"):
         st.markdown(user_input)
 
+    # toujours 4 espaces devant cette ligne
     st.session_state.messages.append({"role": "user", "content": user_input})
 
+    # 4 espaces devant ce with
     with st.chat_message("assistant"):
+        # 8 espaces devant ce with
         with st.spinner("Je réfléchis..."):
-            response = openai.ChatCompletion.create(
+            # 12 espaces devant chaque ligne de l'appel API
+            response = openai.chat.completions.create(
                 model="gpt-4-turbo",
                 messages=st.session_state.messages
             )
             reply = response.choices[0].message.content.strip()
             st.markdown(reply)
 
+    # 4 espaces devant cette ligne de sauvegarde
     st.session_state.messages.append({"role": "assistant", "content": reply})
