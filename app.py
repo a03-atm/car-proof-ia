@@ -3,6 +3,9 @@ import openai
 import urllib.parse
 from serpapi import GoogleSearch
 
+# ─── Configuration OpenAI ───────────────────────────────────────────────
+openai.api_key = st.secrets["openai_api_key"]
+
 # ─── Ton prompt système amélioré ──────────────────────────────────────────
 SYSTEM_PROMPT = """
 Tu es Car Proof IA, un assistant automobile expert et pédagogue.
