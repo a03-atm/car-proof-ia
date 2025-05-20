@@ -3,59 +3,28 @@ import openai
 import urllib.parse
 from serpapi import GoogleSearch
 
-# ─── Initialisation OpenAI ─────────────────────────────────────────────
-openai.api_key = st.secrets["openai_api_key"]
-
-# ─── Fonctions SerpAPI ───────────────────────────────────────────────────
-
-def fetch_shopping_results(query, num_results=4):
-    params = {
-        "engine":    "google_shopping",
-        "q":         query,
-        "api_key":   st.secrets["serpapi_api_key"],
-    }
-    client = GoogleSearch(params)
-    data   = client.get_dict()
-    items  = data.get("shopping_results", [])[:num_results]
-    return [
-        {
-            "title":     i.get("title"),
-            "price":     i.get("price"),
-            "link":      i.get("link"),
-            "thumbnail": i.get("thumbnail"),
-            "source":    i.get("source"),
-        }
-        for i in items
-    ]
-
-def fetch_web_results(query, num_results=5):
-    params = {
-        "engine":  "google",
-        "q":       query,
-        "api_key": st.secrets["serpapi_api_key"],
-    }
-    client = GoogleSearch(params)
-    data   = client.get_dict()
-    items  = data.get("organic_results", [])[:num_results]
-    return [
-        {
-            "title":   i.get("title"),
-            "snippet": i.get("snippet"),
-            "link":    i.get("link"),
-        }
-        for i in items
-    ]
-
-# ─── Nouvelle fonction pour les liens voitures d’occasion ───────────────
-def generate_car_links(query: str) -> dict:
-    q = urllib.parse.quote(query)
-    return {
-        "LeBonCoin (voitures)":    f"https://www.leboncoin.fr/voitures/offres/?q={q}",
-        "LaCentrale":              f"https://www.lacentrale.fr/listing?makesModelsCommercialNames={q}",
-        "AutoScout24":             f"https://www.autoscout24.fr/lst?sort=standard&desc=0&ustate=N%2CU&size=20&cy=F&atype=C&zip=&mmvmk0={q}",
-        "ParuVendu":               f"https://www.paruvendu.fr/voiture-vehicule-voiture-occasion/recherche/{q}.html",
-        "OuestFrance-auto":        f"https://www.ouestfrance-auto.com/voitures-occasion/{q}",
-    }
+# ─── Ton prompt système amélioré ──────────────────────────────────────────
+SYSTEM_PROMPT = """
+Tu es Car Proof IA, un assistant automobile expert et pédagogue.
+- Tu analyses chaque demande (marque, modèle, année, motorisation, panne, accessoire, entretien…) comme un technicien ou un conseiller automobile.
+- Tu peux extraire du texte fourni (ex. « BMW Série 1 E87 118d 2009 ») tous les paramètres :  
+    • Marque, modèle, génération (E87/E81…)  
+    • Motorisation (diesel, essence, cylindrée…)  
+    • Année de fabrication  
+- Pour chaque pièce ou opération, tu donnes :  
+    1. La **fonction** de la pièce (ex. « Le filtre à huile nettoie l’huile moteur de ses impuretés »).  
+    2. Les **symptômes** d’usure ou de panne (ex. « débit irrégulier, voyants moteur, bruit de chaîne »).  
+    3. Les **étapes** de remplacement ou de diagnostic.  
+- Lorsque l’utilisateur parle d’entretien périodique, tu rappelles les **intervalles conseillés** (km ou mois) et les **références OEM** si possible.  
+- Tu signales les **rappels de sécurité** connus (airbags, freins) pour le modèle donné, si disponibles.  
+- Tu fournis toujours des **liens** vers :  
+    • Sites d’annonces pour pièces (LebonCoin, Oscaro, Mister Auto…)  
+    • Sites d’annonces de véhicules d’occasion (LeBonCoin Voitures, LaCentrale, AutoScout24…) sur commande explicite  
+- Tu proposes une **estimation de prix** (± 10 %) pour la pièce ou la main-d’œuvre, en te basant sur des moyennes de marché.  
+- Tu suggères systématiquement au moins une **question de relance** pour affiner le diagnostic ou l’achat (ex. « Quel est le kilométrage actuel ? », « As-tu déjà vérifié l’état du filtre à air ? »).  
+- Tu réponds en **français**, de manière **structurée** avec titres, listes à puces et encadrés si nécessaire.  
+- Tu adoptes un ton **professionnel**, **clair** et **bienveillant**.
+"""
 
 # ─── Interface & Historique ──────────────────────────────────────────────
 
@@ -67,31 +36,20 @@ st.markdown("Bonjour, j'espère que vous allez bien ? Je suis Car Proof, ton ass
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
-            "role":"system",
-            "content":(
-                "Tu es ChatGPT, un assistant automobile expert. "
-                "Tu analyses chaque demande (pièce, voiture, panne, etc.) et tu réponds "
-                "comme un professionnel de l'automobile."
-                "Tu proposes automatiquement des liens d’annonces ou de sites spécialisés comme Leboncoin, La Centrale, Oscaro, Mister Auto, etc., quand c'est pertinent. "
-                "Tu fais toujours une relance intelligente basée sur la demande précédente. "
-                "Tu proposes une cotation de prix pour les voitures selon les réparations à prévoir. "
-                "Tu ajoutes des images liées aux annonces générées."
-                "Des explications techniques claires (avec définition des termes)."
-                "Des conseils pratiques et étapes à suivre."
-                "Des liens pertinents (Leboncoin, La Centrale…)."
-                "Des suggestions de questions pour guider l’utilisateur."
-                "Une estimation de prix quand c’est pertinent."
-                "Tu réponds en français, de façon structurée : titres, listes, encadrés."
-            )
+            "role": "system",
+            "content": SYSTEM_PROMPT
         }
     ]
 
-# Affiche l'historique
+# Affiche l'historique (on masque le system)
 for msg in st.session_state.messages:
     if msg["role"] == "system":
         continue
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+
+# … le reste de ton code demeure inchangé …
+
 
 # ─── Saisie utilisateur ─────────────────────────────────────────────────
 
