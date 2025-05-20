@@ -122,11 +122,16 @@ if user_input:
                     f"Source : {p['source']}"
                 )
 
-    # ─── 3) Liens vers sites d’annonces auto si besoin ────────────────────
-    car_triggers = ["voiture","occasion","acheter","vendre","modèle"]
-    if any(kw in text for kw in car_triggers):
+    # Mémorise la dernière requête métier
+    if not any(kw in text for kw in ["voir annonce", "montre annonce", "affiche annonce"]):
+        st.session_state.base_query = user_input
+
+    # 3) Liens voitures **uniquement** sur commande explicite
+    show_car_cmds = ["voir annonce voiture", "montre annonce voiture", "affiche annonce voiture"]
+    if any(cmd in text for cmd in show_car_cmds):
+        q = st.session_state.base_query
         st.markdown("🚗 **Annonces de voitures d’occasion :**")
-        for name, url in generate_car_links(user_input).items():
+        for name, url in generate_car_links(q).items():
             st.markdown(f"- [{name}]({url})")
 
     # 4) Appel à l’IA
