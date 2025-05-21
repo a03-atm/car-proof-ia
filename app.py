@@ -81,7 +81,7 @@ Tu es Car Proof IA, un assistant automobile expert et pédagogue.
 
 st.set_page_config(page_title="Car Proof IA", page_icon="🚗", layout="wide")
 
-st.title("🚗 Car Proof IA")
+st.title("🚗 Car Proof")
 st.markdown("Bonjour, j'espère que vous allez bien ? Je suis Car Proof, ton assistant IA spécialisé dans l'automobile.")
 
 if "messages" not in st.session_state:
