@@ -1,19 +1,55 @@
+import os
 import streamlit as st
 import openai
 import urllib.parse
 from serpapi import GoogleSearch
+from functools import lru_cache
 
-openai.api_key = st.secrets["openai_api_key"]
+# ─── Page config (doit être le tout premier appel) ───────────────────────
+st.set_page_config(page_title="🚗 Car Proof IA", page_icon="🚗", layout="wide")
 
-def fetch_shopping_results(query, num_results=4):
-    params = {
-        "engine":    "google_shopping",
-        "q":         query,
-        "api_key":   st.secrets["serpapi_api_key"],
-    }
-    client = GoogleSearch(params)
-    data   = client.get_dict()
-    items  = data.get("shopping_results", [])[:num_results]
+# ─── Clés API ─────────────────────────────────────────────────────────────
+openai.api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
+if not openai.api_key:
+    st.error("🔑 ERREUR : Ta clé OpenAI n'est pas définie.")
+
+SERPAPI_KEY = st.secrets.get("serpapi_api_key") or os.getenv("SERPAPI_API_KEY")
+if not SERPAPI_KEY:
+    st.error("🔑 ERREUR : Ta clé SerpAPI n'est pas définie.")
+
+# ─── Localisation (injectée manuellement ici) ────────────────────────────
+USER_LOCATION = "Nancy, Grand Est, France"
+ville = USER_LOCATION.split(",")[0]
+
+# ─── Services locaux Cap Car ──────────────────────────────────────────────
+LOCAL_GARAGES = {
+    "Nancy": ["Garage Rapid'Auto Nancy", "Cap Car Nancy", "AutoServices Metz"],
+}
+MY_AGENT_SERVICE_URLS = {
+    "cotation":  "https://www.capcar.fr/rayane.aitmalouk",
+    "accueil":    "https://www.capcar.fr?utm_source=agentRAI11032025&utm_medium=mlm&utm_campaign=mlm",
+    "catalogue":  "https://www.capcar.fr/voiture-occasion?utm_source=agentRAI11032025&utm_medium=mlm&utm_campaign=mlm",
+    "vitrine":    "https://www.capcar.fr/agents/rayane-ait-malouk?utm_source=agentRAI11032025&utm_medium=mlm&utm_campaign=mlm",
+}
+
+# ─── Helpers SerpAPI ─────────────────────────────────────────────────────
+@lru_cache(maxsize=128)
+def fetch_web_results(query: str, num_results: int = 5):
+    params = {"engine": "google", "q": query, "api_key": SERPAPI_KEY}
+    data   = GoogleSearch(params).get_dict()
+    return [
+        {
+            "title":     i.get("title"),
+            "snippet":   i.get("snippet"),
+            "link":      i.get("link"),
+            "thumbnail": i.get("rich_snippet", {}).get("top", {}).get("thumbnail"),
+        }
+        for i in data.get("organic_results", [])[:num_results]
+    ]
+
+def fetch_shopping_results(query: str, num_results: int = 4):
+    params = {"engine": "google_shopping", "q": query, "api_key": SERPAPI_KEY}
+    data   = GoogleSearch(params).get_dict()
     return [
         {
             "title":     i.get("title"),
@@ -22,40 +58,32 @@ def fetch_shopping_results(query, num_results=4):
             "thumbnail": i.get("thumbnail"),
             "source":    i.get("source"),
         }
-        for i in items
-    ]
-
-def fetch_web_results(query, num_results=5):
-    params = {
-        "engine":  "google",
-        "q":       query,
-        "api_key": st.secrets["serpapi_api_key"],
-    }
-    client = GoogleSearch(params)
-    data   = client.get_dict()
-    items  = data.get("organic_results", [])[:num_results]
-    return [
-        {
-            "title":   i.get("title"),
-            "snippet": i.get("snippet"),
-            "link":    i.get("link"),
-        }
-        for i in items
+        for i in data.get("shopping_results", [])[:num_results]
     ]
 
 def generate_car_links(query: str) -> dict:
     q = urllib.parse.quote(query)
     return {
-        "LeBonCoin (voitures)":    f"https://www.leboncoin.fr/voitures/offres/?q={q}",
-        "LaCentrale":              f"https://www.lacentrale.fr/listing?makesModelsCommercialNames={q}",
-        "AutoScout24":             f"https://www.autoscout24.fr/lst?sort=standard&desc=0&ustate=N%2CU&size=20&cy=F&atype=C&zip=&mmvmk0={q}",
-        "ParuVendu":               f"https://www.paruvendu.fr/voiture-vehicule-voiture-occasion/recherche/{q}.html",
-        "OuestFrance-auto":        f"https://www.ouestfrance-auto.com/voitures-occasion/{q}",
+        "LeBonCoin (voitures)": f"https://www.leboncoin.fr/voitures/offres/?q={q}",
+        "LaCentrale":            f"https://www.lacentrale.fr/listing?makesModelsCommercialNames={q}",
+        "AutoScout24":           f"https://www.autoscout24.fr/lst?sort=standard&desc=0&ustate=N%2CU&size=20&cy=F&atype=C&zip=&mmvmk0={q}",
+        "ParuVendu":             f"https://www.paruvendu.fr/voiture-vehicule-voiture-occasion/recherche/{q}.html",
+        "OuestFrance-auto":      f"https://www.ouestfrance-auto.com/voitures-occasion/{q}",
     }
 
-# ─── Ton prompt système amélioré ──────────────────────────────────────────
+# ─── Nouvel ajout : génération de liens pour pièces auto ─────────────────
+def generate_part_links(query: str) -> dict:
+    q = urllib.parse.quote(query)
+    return {
+        "Oscaro":      f"https://www.oscaro.com/recherche?query={q}",
+        "Mister Auto": f"https://www.mister-auto.com/search?search={q}",
+        "Autodoc":     f"https://www.autodoc.fr/recherche?search={q}",
+        "Pièces Auto": f"https://www.piecesauto.fr/recherche?search={q}",
+    }
+
+# ─── Prompt système ──────────────────────────────────────────────────────
 SYSTEM_PROMPT = """
-Tu es Car Proof IA, un assistant automobile expert et pédagogue.
+Tu es Car Proof IA, un assistant automobile expert et pédagogue nqui s'appui sur chat Gpt.
 - Tu analyses chaque demande (marque, modèle, année, motorisation, panne, accessoire, entretien…) comme un technicien ou un conseiller automobile.
 - Tu peux extraire du texte fourni (ex. « BMW Série 1 E87 118d 2009 ») tous les paramètres :  
     • Marque, modèle, génération (E87/E81…)  
@@ -78,94 +106,124 @@ Tu es Car Proof IA, un assistant automobile expert et pédagogue.
 """
 
 # ─── Interface & Historique ──────────────────────────────────────────────
-
-st.set_page_config(page_title="Car Proof IA", page_icon="🚗", layout="wide")
-
-st.title("🚗 Car Proof")
-st.markdown("Bonjour, j'espère que vous allez bien ? Je suis Car Proof, ton assistant IA spécialisé dans l'automobile.")
-
+st.title("🚗 Car Proof IA")
+st.markdown("Bonjour, J'espère que vous allez bien ? Je suis Car Proof, votre assitant auto. En quoi puis-je vous aider ?")
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT
-        }
-    ]
-
-# Affiche l'historique (on masque le system)
+    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 for msg in st.session_state.messages:
-    if msg["role"] == "system":
-        continue
+    if msg["role"] == "system": continue
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# … le reste de ton code demeure inchangé …
-
-
-
-# ─── Saisie utilisateur ─────────────────────────────────────────────────
-
+# ─── Entrée utilisateur ─────────────────────────────────────────────────
 user_input = st.chat_input("💬 Ta demande ici :")
+if not user_input:
+    st.stop()
 
-if user_input:
-    # Affiche la question
-    with st.chat_message("user"):
-        st.markdown(user_input)
+# 1) Save & display user question
+with st.chat_message("user"):
+    st.markdown(user_input)
+st.session_state.messages.append({"role": "user", "content": user_input})
+text = user_input.lower()
 
-    # Ajoute à l'historique
-    st.session_state.messages.append({"role":"user","content":user_input})
+# 2) Web Search si demandé
+web_triggers = ["cherche", "recherche", "info", "site", "annonce", "google"]
+if any(kw in text for kw in web_triggers):
+    st.markdown("🌐 **Résultats Web :**")
+    for wr in fetch_web_results(user_input):
+        cols = st.columns([1, 4])
+        with cols[0]:
+            if wr["thumbnail"]:
+                st.image(wr["thumbnail"], width=80)
+        with cols[1]:
+            st.markdown(f"**[{wr['title']}]({wr['link']})**  \n{wr['snippet'] or ''}")
 
-    text = user_input.lower()
+# 3) Shopping annonces & pièces auto si trigger
+shopping_triggers = ["filtre", "huile", "pneu", "jante", "roue", "chaine", "amortisseur"]
+if any(kw in text for kw in shopping_triggers):
+    st.markdown("🛍️ **Annonces Google Shopping :**")
+    prods = fetch_shopping_results(user_input)
+    # Carrousel images
+    thumbs = [p["thumbnail"] for p in prods if p["thumbnail"]]
+    if thumbs:
+        cols = st.columns(len(thumbs))
+        for col, img in zip(cols, thumbs):
+            col.image(img, width=120)
+    # Détail
+    st.markdown("**Sélection recommandée :**")
+    for p in prods:
+        st.markdown(
+            f"- **{p['title']}**  \n"
+            f"  Prix : {p['price']}  \n"
+            f"  Source : {p['source']}  \n"
+            f"  [Voir l’annonce]({p['link']})"
+        )
+    st.markdown("---")
+    st.markdown("**Sources :**")
+    for src in {p["source"] for p in prods}:
+        st.markdown(f"- {src}")
 
-    # 1) Recherche web si demandé
-    web_triggers = ["cherche sur le web","infos","google","site internet","recherche web","voir sur le web","google","site internet"]
-    if any(kw in text for kw in web_triggers):
-        st.markdown("🌐 **Résultats Web :**")
-        for wr in fetch_web_results(user_input):
-            st.markdown(f"**[{wr['title']}]({wr['link']})**  \n{wr['snippet']}\n")
+    # ── ICI : liens vers magasins de pièces auto
+    st.markdown("🔧 **Magasins de pièces automobiles :**")
+    for name, url in generate_part_links(user_input).items():
+        st.markdown(f"- [{name}]({url})")
 
-    # 2) Annonces shopping si pièces auto
-    shopping_triggers = ["filtre","huile","pneu","jante","roue","chaine"]
-    if any(kw in text for kw in shopping_triggers) or any(kw in text for kw in web_triggers):
-        st.markdown("🛍️ **Annonces Google Shopping :**")
-        for p in fetch_shopping_results(user_input):
-            cols = st.columns([1,3])
-            with cols[0]:
-                if p["thumbnail"]:
-                    st.image(p["thumbnail"], width=80)
-            with cols[1]:
-                st.markdown(
-                    f"**[{p['title']}]({p['link']})**  \n"
-                    f"Prix : {p['price']}  \n"
-                    f"Source : {p['source']}"
-                )
+# 4) Appel IA
+with st.chat_message("assistant"):
+    with st.spinner("Je réfléchis…"):
+        # 1) On conserve le system prompt
+        system_msg = st.session_state.messages[0]
+        # 2) On tronque l'historique utilisateur/assistant aux 10 derniers messages
+        history = st.session_state.messages[1:]
+        if len(history) > 10:
+            history = history[-10:]
+        messages_to_send = [system_msg] + history
 
-    # Mémorise la dernière requête métier
-    if not any(kw in text for kw in ["voir annonce", "montre annonce", "affiche annonce"]):
-        st.session_state.base_query = user_input
+        resp = openai.chat.completions.create(
+            model="gpt-4",
+            temperature=0.7,
+            max_tokens=500,
+            timeout=60,
+            messages=messages_to_send
+        )
+        reply = resp.choices[0].message.content.strip()
+        st.markdown(reply)
 
-    # 3) Liens voitures **uniquement** sur commande explicite
-    show_car_cmds = ["voir annonce voiture", "montre annonce voiture", "affiche annonce voiture"]
-    if any(cmd in text for cmd in show_car_cmds):
-        q = st.session_state.base_query
-        st.markdown("🚗 **Annonces de voitures d’occasion :**")
-        for name, url in generate_car_links(q).items():
-            st.markdown(f"- [{name}]({url})")
+# 5) Voitures d’occasion si demandé
+show_car_cmds = ["voir annonce voiture", "affiche annonce voiture", "montre annonce voiture"]
+if any(cmd in text for cmd in show_car_cmds):
+    st.markdown("🚗 **Annonces de voitures d’occasion :**")
+    for name, url in generate_car_links(user_input).items():
+        st.markdown(f"- [{name}]({url})")
 
-    # 4) Appel à l’IA
-    with st.chat_message("assistant"):
-        with st.spinner("Je réfléchis..."):
-            response = openai.chat.completions.create(
-                model="gpt-4",
-                temperature=0.9,
-                max_tokens=900,
-                messages=st.session_state.messages
-            )
-            reply = response.choices[0].message.content.strip()
-            st.markdown(reply)
+# 6) Vente & services Cap Car
+sell_triggers = ["vendre", "je veux vendre", "à vendre", "vendu"]
+if any(kw in text for kw in sell_triggers):
+    st.markdown("💼 **Vous souhaitez vendre ?**")
+    garages = LOCAL_GARAGES.get(ville, [])
+    if garages:
+        st.markdown("🔧 **Garages recommandés :**")
+        for g in garages:
+            st.markdown(f"- {g}")
+    st.markdown("💼 **Services Cap Car :**")
+    st.markdown(
+        f"- [Obtenez votre cotation gratuite]({MY_AGENT_SERVICE_URLS['cotation']})  \n"
+        f"- [Accueil CapCar.fr]({MY_AGENT_SERVICE_URLS['accueil']})  \n"
+        f"- [Catalogue des véhicules]({MY_AGENT_SERVICE_URLS['catalogue']})  \n"
+        f"- [Ma page vitrine Cap Car]({MY_AGENT_SERVICE_URLS['vitrine']})"
+    )
 
-    # 5) Sauvegarde la réponse
-    st.session_state.messages.append({"role":"assistant","content":reply})
+    
+    if not reply.strip().endswith('?'):
+        st.markdown(
+            "> **Question de suivi :** "
+            "Pouvez-vous préciser si vous souhaitez des pièces neuves ou d'occasion, "
+            "et si c'est pour l'avant, l'arrière ou l'ensemble du train ?"
+        )
+
+# 7) Sauvegarde de la réponse
+st.session_state.messages.append({"role": "assistant", "content": reply})
+
 
 
 
