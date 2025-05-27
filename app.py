@@ -6,7 +6,7 @@ from serpapi import GoogleSearch
 from functools import lru_cache
 
 # ─── Page config (doit être le tout premier appel) ───────────────────────
-st.set_page_config(page_title="🚗 Car Proof IA", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="🚗 Car Proof ", page_icon="🚗", layout="wide")
 
 # ─── Clés API ─────────────────────────────────────────────────────────────
 openai.api_key = st.secrets.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
@@ -106,7 +106,7 @@ Tu es Car Proof IA, un assistant automobile expert et pédagogue nqui s'appui su
 """
 
 # ─── Interface & Historique ──────────────────────────────────────────────
-st.title("🚗 Car Proof IA")
+st.title("🚗 Car Proof")
 st.markdown("Bonjour, J'espère que vous allez bien ? Je suis Car Proof, votre assitant auto. En quoi puis-je vous aider ?")
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
